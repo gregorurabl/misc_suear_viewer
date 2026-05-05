@@ -4,6 +4,8 @@ A Python/tkinter desktop application for live viewing, recording, and image enha
 
 Developed as a fork of [Suear-Web-Viewer by SeanPesce](https://github.com/SeanPesce/Suear-Web-Viewer), extended with a full GUI, video recording, image enhancement, and hardware controls.
 
+<img width="1172" height="526" alt="grafik" src="https://github.com/user-attachments/assets/b8a357df-8faa-498c-a7f9-90e93557e358" />
+
 ---
 
 ## Compatibility
