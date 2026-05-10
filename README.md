@@ -4,6 +4,9 @@ A Python/tkinter desktop application for live viewing, recording, and image enha
 
 Developed as a fork of [Suear-Web-Viewer by SeanPesce](https://github.com/SeanPesce/Suear-Web-Viewer), extended with a full GUI, video recording, image enhancement, AI upscaling, and hardware controls.
 
+<img width="905" height="578" alt="grafik" src="https://github.com/user-attachments/assets/1626953d-227d-41c4-bb40-e99691b4dba0" />
+
+
 ---
 
 ## Compatibility
@@ -95,7 +98,6 @@ The UI is split into two rows of controls above the live video canvas.
 | **LED** checkbox | Toggle the camera's LED ring on/off (enabled after connect) |
 | **Enhance** checkbox | Toggle real-time image enhancement (bilateral filter) |
 | **Settings** button | Open the Enhance Settings window |
-| **AI Upscale** checkbox | Enable AI upscaling on frame export and video post-processing |
 | **Preset** dropdown | Upscale preset (see below) |
 | **Scale** dropdown | Upscale factor: 2× or 4× |
 | **Save Frame** button | Save current frame as JPEG or PNG |
@@ -116,7 +118,11 @@ Open via the **Settings** button. Adjustments apply in real time to the live pre
 | **Brightness** | Global brightness offset |
 | **Saturation** | HSV saturation scaling |
 
+<img width="365" height="249" alt="grafik" src="https://github.com/user-attachments/assets/6b81c559-dc29-4d26-bd93-86daa26ad779" />
+
 ---
+
+## AI Upscale Presets
 
 ## AI Upscale Presets
 
@@ -127,10 +133,14 @@ Open via the **Settings** button. Adjustments apply in real time to the live pre
 | **Balanced** | General use | Moderate denoise + sharpen |
 | **Clean** | Maximum fidelity | No pre-processing, upscale only |
 
-When AI Upscale is active:
+**Save Frame** always saves two files when the AI binary is installed:
+the enhanced original and an `_upscaled_Nx_Preset` copy alongside it.
 
-- **Save Frame** saves two files: the enhanced original and an `_upscaled_Nx_Preset` copy.
-- **Upscale Video** processes the last recording and saves a new `_upscaled_Nx_Preset.mov` alongside the original. The original is never overwritten.
+**Upscale Video** opens a file dialog to select any `.mov` file, processes it frame by frame,
+and saves a new `_upscaled_Nx_Preset.mov` alongside the original. The original is never overwritten.
+
+
+<img width="446" height="213" alt="grafik" src="https://github.com/user-attachments/assets/4e529cf2-f361-4b2c-b7de-be0869323956" />
 
 ---
 
