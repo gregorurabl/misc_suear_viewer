@@ -1,2 +1,7 @@
 Pillow>=10.0.0
 opencv-python>=4.8.0
+
+# AI upscaling — no Python package required.
+# Download the realesrgan-ncnn-vulkan standalone binary from:
+#   https://github.com/xinntao/Real-ESRGAN/releases
+# Extract the folder as "realesrgan/" next to app.py.
