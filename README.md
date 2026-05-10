@@ -168,7 +168,7 @@ Protocol reverse engineering and original Python implementation:
 **SeanPesce** — [Suear-Web-Viewer](https://github.com/SeanPesce/Suear-Web-Viewer)
 
 GUI, recording, enhancement, and AI upscaling extensions:
-**YOUR NAME HERE** — [Homepage](https://your-homepage.example.com) · [GitHub](https://github.com/your-username)
+**Gregor Urabl, BA** — [Homepage](https://gregorurabl.at) · [GitHub](https://github.com/gregorurabl)
 
 ---
 
