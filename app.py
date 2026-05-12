@@ -12,7 +12,8 @@ from config import FRAME_INTERVAL, BATTERY_POLL_MS
 from enhancer import enhance, enhance_full, DEFAULTS
 from recorder import Recorder
 from stream_thread import StreamThread
-from upscaler import PRESETS, SCALES, upscale_frame, upscale_video, is_available
+from upscaler import discover_models, upscale_frame, upscale_video, is_available
+from stabilizer import Stabilizer, stabilize_video
 
 
 # --- About window -----------------------------------------------------------
@@ -29,9 +30,9 @@ class AboutWindow(tk.Toplevel):
         ttk.Label(f, text="WiFi Otoscope Camera Viewer").pack(pady=(2, 12))
         ttk.Separator(f, orient="horizontal").pack(fill="x", pady=(0, 12))
         ttk.Label(f, text="Developed by").pack()
-        ttk.Label(f, text="GREGOR URABL, BA", font=("", 10, "bold")).pack()  # <-- replace
-        ttk.Label(f, text="https://gregorurabl.at").pack(pady=(2, 2))  # <-- replace
-        ttk.Label(f, text="https://github.com/gregorurabl").pack()          # <-- replace
+        ttk.Label(f, text="YOUR NAME HERE", font=("", 10, "bold")).pack()  # <-- replace
+        ttk.Label(f, text="https://your-homepage.example.com").pack(pady=(2, 2))  # <-- replace
+        ttk.Label(f, text="https://github.com/your-username").pack()          # <-- replace
         ttk.Separator(f, orient="horizontal").pack(fill="x", pady=12)
         ttk.Label(f, text="Based on Suear-Web-Viewer by SeanPesce",
                   foreground="gray").pack()
@@ -104,39 +105,34 @@ class SettingsWindow(tk.Toplevel):
 
 # --- Video upscale progress dialog ------------------------------------------
 
-class UpscaleDialog(tk.Toplevel):
-    def __init__(self, parent, input_path, preset, scale):
+class VideoProcessDialog(tk.Toplevel):
+    """Reusable progress window for video export tasks (upscale / stabilize)."""
+
+    def __init__(self, parent, input_path: str, title: str, worker_fn):
         super().__init__(parent)
-        self.title("Upscaling Video…")
+        self.title(title)
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self._on_cancel)
-        self._cancel = threading.Event()
-
-        # derive output path
-        base, ext = os.path.splitext(input_path)
-        self._output = f"{base}_upscaled_{scale}x_{preset}{ext}"
+        self._cancel   = threading.Event()
+        self._out_path = None
 
         f = ttk.Frame(self, padding=20)
         f.pack(fill="both", expand=True)
-        ttk.Label(f, text=f"Preset: {preset}   Scale: {scale}×").pack(anchor="w")
         ttk.Label(f, text=os.path.basename(input_path),
-                  foreground="gray").pack(anchor="w", pady=(2, 10))
+                  foreground="gray").pack(anchor="w", pady=(0, 10))
 
         self._progress_var = tk.DoubleVar(value=0)
-        self._bar = ttk.Progressbar(f, variable=self._progress_var,
-                                     maximum=100, length=400)
-        self._bar.pack(fill="x")
+        ttk.Progressbar(f, variable=self._progress_var,
+                        maximum=100, length=400).pack(fill="x")
 
         self._label_var = tk.StringVar(value="Initialising…")
         ttk.Label(f, textvariable=self._label_var).pack(pady=(6, 12))
-
         ttk.Button(f, text="Cancel", command=self._on_cancel).pack()
 
-        # start worker thread
         threading.Thread(
             target=self._run,
-            args=(input_path, preset, scale),
-            daemon=True
+            args=(input_path, worker_fn),
+            daemon=True,
         ).start()
 
     def _progress(self, current, total):
@@ -144,28 +140,75 @@ class UpscaleDialog(tk.Toplevel):
         self._progress_var.set(pct)
         self._label_var.set(f"Frame {current} / {total}  ({pct:.0f}%)")
 
-    def _run(self, input_path, preset, scale):
+    def _run(self, input_path, worker_fn):
         try:
-            upscale_video(input_path, self._output, preset, scale,
-                          progress_cb=self._progress,
-                          cancel_event=self._cancel)
+            worker_fn(self._progress, self._cancel)
             if not self._cancel.is_set():
                 self.after(0, self._on_done)
         except Exception as exc:
             self.after(0, lambda e=exc: self._on_error(str(e)))
 
     def _on_done(self):
-        messagebox.showinfo("Done",
-            f"Saved to:\n{self._output}", parent=self)
+        messagebox.showinfo("Done", f"Saved to:\n{self._out_path}", parent=self)
         self.destroy()
 
     def _on_error(self, msg):
-        messagebox.showerror("Upscale failed", msg, parent=self)
+        messagebox.showerror("Failed", msg, parent=self)
         self.destroy()
 
     def _on_cancel(self):
         self._cancel.set()
         self.destroy()
+
+    def set_output_path(self, path: str):
+        self._out_path = path
+
+
+# --- Upscale options dialog -------------------------------------------------
+
+class UpscaleOptionsDialog(tk.Toplevel):
+    """Modal dialog for model and scale selection before upscale operations."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Upscale Options")
+        self.resizable(False, False)
+        self.grab_set()
+        self._result    = None
+        self._model_var = tk.StringVar()
+        self._scale_var = tk.StringVar(value="4")
+        self._build()
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+
+    def _build(self):
+        f = ttk.Frame(self, padding=16)
+        f.pack(fill="both", expand=True)
+        models  = discover_models()
+        default = next((m for m in models if 'x4plus' in m), models[0] if models else '')
+        self._model_var.set(default)
+        ttk.Label(f, text="Model:").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        ttk.Combobox(f, textvariable=self._model_var, values=models,
+                     state="readonly", width=26).grid(row=0, column=1, padx=(8, 0), pady=(0, 6))
+        ttk.Label(f, text="Scale:").grid(row=1, column=0, sticky="w", pady=(0, 14))
+        ttk.Combobox(f, textvariable=self._scale_var, values=["2", "4"],
+                     state="readonly", width=4).grid(row=1, column=1, padx=(8, 0), pady=(0, 14), sticky="w")
+        btn = ttk.Frame(f)
+        btn.grid(row=2, column=0, columnspan=2)
+        ttk.Button(btn, text="OK",     command=self._on_ok).pack(side="left", padx=(0, 8))
+        ttk.Button(btn, text="Cancel", command=self._on_cancel).pack(side="left")
+
+    def _on_ok(self):
+        self._result = (self._model_var.get(), int(self._scale_var.get()))
+        self.destroy()
+
+    def _on_cancel(self):
+        self._result = None
+        self.destroy()
+
+    def show(self):
+        """Block until dialog closes; return (model, scale) or None on cancel."""
+        self.wait_window()
+        return self._result
 
 
 # --- Main application -------------------------------------------------------
@@ -183,10 +226,10 @@ class App(tk.Tk):
         self._canvas_w       = 640
         self._canvas_h       = 480
         self._enhance_on     = tk.BooleanVar(value=True)
+        self._stabilize_on   = tk.BooleanVar(value=False)
         self._led_on         = tk.BooleanVar(value=True)
-        self._ai_preset      = tk.StringVar(value="Balanced")
-        self._ai_scale       = tk.IntVar(value=4)
         self._enhance_busy   = False
+        self._stabilizer     = Stabilizer(smoothing_window=12, zoom=1.06)
         self._settings_win   = None
         self._about_win      = None
         self._build_ui()
@@ -235,19 +278,15 @@ class App(tk.Tk):
                                               variable=self._enhance_on)
         self._enhance_chk.pack(side="left", padx=(0, 2))
 
+        self._stabilize_chk = ttk.Checkbutton(ctrl, text="Stabilize",
+                                               variable=self._stabilize_on,
+                                               command=self._on_stabilize_toggle)
+        self._stabilize_chk.pack(side="left", padx=(0, 2))
+
         ttk.Button(ctrl, text="Settings", command=self._on_toggle_settings).pack(side="left", padx=(0, 12))
 
-        # Centre group: AI upscale
+        # Centre group: separator (model/scale moved to UpscaleOptionsDialog)
         ttk.Separator(ctrl, orient="vertical").pack(side="left", fill="y", padx=(0, 8))
-        ttk.Label(ctrl, text="Preset:").pack(side="left")
-        ttk.Combobox(ctrl, textvariable=self._ai_preset,
-                     values=list(PRESETS.keys()),
-                     state="readonly", width=11).pack(side="left", padx=(2, 4))
-
-        ttk.Label(ctrl, text="Scale:").pack(side="left")
-        ttk.Combobox(ctrl, textvariable=self._ai_scale,
-                     values=[f"{s}×" for s in SCALES],
-                     state="readonly", width=4).pack(side="left", padx=(2, 12))
 
         # Right group: actions
         ttk.Separator(ctrl, orient="vertical").pack(side="left", fill="y", padx=(0, 8))
@@ -262,14 +301,18 @@ class App(tk.Tk):
 
         self._upscale_btn = ttk.Button(ctrl, text="Upscale Video",
                                         command=self._on_upscale_video)
-        self._upscale_btn.pack(side="left")
+        self._upscale_btn.pack(side="left", padx=(0, 4))
+
+        self._stabilize_video_btn = ttk.Button(ctrl, text="Stabilize Video",
+                                                command=self._on_stabilize_video)
+        self._stabilize_video_btn.pack(side="left")
 
         # === Row 2 — canvas ===
         self._canvas = tk.Canvas(self, bg="black")
         self._canvas.grid(row=2, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", self._on_canvas_resize)
 
-        self.geometry("900x540")
+        self.geometry("980x540")
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # --- settings / about ---------------------------------------------------
@@ -323,6 +366,7 @@ class App(tk.Tk):
             self.title("Suear Viewer")
             return
 
+        self._stabilizer.reset()
         self._stream = StreamThread()
         self._stream.start()
         self._connect_btn.config(text="Disconnect")
@@ -384,9 +428,40 @@ class App(tk.Tk):
         self._rec_var.set(f"REC {s // 60:02d}:{s % 60:02d}")
         self.after(500, self._poll_rec_timer)
 
+    # --- stabilizer ---------------------------------------------------------
+
+    def _on_stabilize_toggle(self):
+        self._stabilizer.reset()  # clear history on toggle
+
+    def _on_stabilize_video(self):
+        path = self._last_rec_path if (
+            self._last_rec_path and os.path.isfile(self._last_rec_path)
+        ) else None
+        path = filedialog.askopenfilename(
+            title="Select video to stabilize",
+            initialfile=os.path.basename(path) if path else "",
+            initialdir=os.path.dirname(path) if path else "",
+            filetypes=[("QuickTime Movie", "*.mov"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        base, ext = os.path.splitext(path)
+        out_path  = f"{base}_stabilized{ext}"
+        dlg = VideoProcessDialog(
+            self, path, "Stabilizing Video…",
+            lambda cb, ce: stabilize_video(path, out_path,
+                                            smoothing_window=30, zoom=1.06,
+                                            progress_cb=cb, cancel_event=ce),
+        )
+        dlg.set_output_path(out_path)
+
     # --- AI video upscale ---------------------------------------------------
 
     def _on_upscale_video(self):
+        opts = UpscaleOptionsDialog(self).show()
+        if opts is None:
+            return
+        model, scale = opts
         path = self._last_rec_path if (
             self._last_rec_path and os.path.isfile(self._last_rec_path)
         ) else None
@@ -398,9 +473,17 @@ class App(tk.Tk):
         )
         if not path:
             return
-        raw   = self._ai_scale.get()
-        scale = int(str(raw).replace('×', '').strip())
-        UpscaleDialog(self, path, self._ai_preset.get(), scale)
+        params   = self._settings_win.get_params() if self._settings_win else DEFAULTS
+        denoise  = int(params['denoise'])
+        sharpen  = int(params['sharpen'])
+        base, ext = os.path.splitext(path)
+        out_path  = f"{base}_upscaled_{scale}x_{model}{ext}"
+        dlg = VideoProcessDialog(
+            self, path, "Upscaling Video…",
+            lambda cb, ce: upscale_video(path, out_path, denoise, sharpen, model, scale,
+                                          progress_cb=cb, cancel_event=ce),
+        )
+        dlg.set_output_path(out_path)
 
     # --- save frame ---------------------------------------------------------
 
@@ -422,15 +505,17 @@ class App(tk.Tk):
         # save enhanced original
         Image.open(io.BytesIO(data)).save(path)
 
-        # always save AI upscaled copy if binary is available
+        # prompt for upscale options, then save AI upscaled copy
         if is_available():
-            raw     = self._ai_scale.get()
-            scale   = int(str(raw).replace('×', '').strip())
-            preset  = self._ai_preset.get()
-            ai_data = upscale_frame(data, preset, scale)
-            base, ext = os.path.splitext(path)
-            ai_path = f"{base}_upscaled_{scale}x_{preset}{ext}"
-            Image.open(io.BytesIO(ai_data)).save(ai_path)
+            opts = UpscaleOptionsDialog(self).show()
+            if opts is not None:
+                model, scale = opts
+                denoise  = int(params['denoise'])
+                sharpen  = int(params['sharpen'])
+                ai_data  = upscale_frame(data, denoise, sharpen, model, scale)
+                base, ext = os.path.splitext(path)
+                ai_path   = f"{base}_upscaled_{scale}x_{model}{ext}"
+                Image.open(io.BytesIO(ai_data)).save(ai_path)
 
     # --- polling ------------------------------------------------------------
 
@@ -463,6 +548,11 @@ class App(tk.Tk):
         try:
             jpeg             = self._stream.frame_queue.get_nowait()
             self._last_frame = jpeg
+
+            # stabilize before enhance
+            if self._stabilize_on.get():
+                jpeg = self._stabilizer.process(jpeg)
+
             if self._enhance_on.get() and not self._enhance_busy:
                 self._enhance_busy = True
                 params = self._settings_win.get_params() if self._settings_win else DEFAULTS

@@ -23,6 +23,7 @@ class Recorder:
             '-profile:v', '3',        # 422 HQ
             '-vendor', 'apl0',
             '-pix_fmt', 'yuv422p10le',
+            '-movflags', '+faststart',
             self.output_path
         ]
         self._proc = subprocess.Popen(

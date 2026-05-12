@@ -4,9 +4,6 @@ A Python/tkinter desktop application for live viewing, recording, and image enha
 
 Developed as a fork of [Suear-Web-Viewer by SeanPesce](https://github.com/SeanPesce/Suear-Web-Viewer), extended with a full GUI, video recording, image enhancement, AI upscaling, and hardware controls.
 
-<img width="905" height="578" alt="grafik" src="https://github.com/user-attachments/assets/1626953d-227d-41c4-bb40-e99691b4dba0" />
-
-
 ---
 
 ## Compatibility
@@ -96,14 +93,14 @@ The UI is split into two rows of controls above the live video canvas.
 | Element | Description |
 |---|---|
 | **LED** checkbox | Toggle the camera's LED ring on/off (enabled after connect) |
-| **Enhance** checkbox | Toggle real-time image enhancement (bilateral filter) |
+| **Enhance** checkbox | Toggle real-time image enhancement |
+| **Stabilize** checkbox | Toggle live Farneback optical flow stabilization |
 | **Settings** button | Open the Enhance Settings window |
-| **Preset** dropdown | Upscale preset (see below) |
-| **Scale** dropdown | Upscale factor: 2× or 4× |
-| **Save Frame** button | Save current frame as JPEG or PNG |
+| **Save Frame** button | Save current frame as enhanced original; if AI binary is installed, opens upscale options dialog first |
 | **Record / Stop** button | Start or stop ProRes 422HQ video recording |
-| **Upscale Video** button | Post-process the last recording with AI upscaling (unlocks after Stop) |
-
+| **Upscale Video** button | Opens upscale options dialog, then file dialog — processes selected .mov frame by frame |
+| **Stabilize Video** button | Opens file dialog — applies two-pass Farneback stabilization to selected .mov |
+ 
 ---
 
 ## Enhance Settings
@@ -118,30 +115,44 @@ Open via the **Settings** button. Adjustments apply in real time to the live pre
 | **Brightness** | Global brightness offset |
 | **Saturation** | HSV saturation scaling |
 
-<img width="365" height="249" alt="grafik" src="https://github.com/user-attachments/assets/6b81c559-dc29-4d26-bd93-86daa26ad779" />
+---
 
+## Live Stabilization
+ 
+Toggle via the **Stabilize** checkbox. Uses Farneback dense optical flow with translation-only correction, median-flow outlier rejection, and zoom-crop to hide borders. Stabilizer history resets on toggle and on connect.
+ 
+---
+
+## Stabilize Video
+ 
+Opens a file dialog to select any `.mov`. Applies a two-pass Farneback stabilization (smoothing window: 30 frames, zoom: 1.06×) and saves the result as `_stabilized.mov` alongside the original. Progress is shown in the same dialog used for video upscaling. The original is never overwritten.
+ 
 ---
 
 ## AI Upscale Presets
 
-## AI Upscale Presets
+Model and scale are selected per operation via a dialog that appears before the file dialog.
+The Denoise and Sharpen values from the Enhance Settings window are used as pre-processing before the neural upscale. If Settings has not been opened, the defaults apply.
+ 
+**Save Frame** saves the enhanced original first, then opens the upscale dialog if the AI binary is installed. Cancelling the dialog skips the upscaled copy without affecting the saved original.
+ 
+**Upscale Video** opens the upscale dialog first, then the file picker. Output is saved as `_upscaled_Nx_<model>.mov` alongside the original. The original is never overwritten.
 
-| Preset | Best for | Processing |
-|---|---|---|
-| **Inspection** | Electronics, PCB, solder joints | Strong sharpening before upscale |
-| **Medical** | Tissue, skin, ear canal | Strong denoising before upscale |
-| **Balanced** | General use | Moderate denoise + sharpen |
-| **Clean** | Maximum fidelity | No pre-processing, upscale only |
+---
 
-**Save Frame** always saves two files when the AI binary is installed:
-the enhanced original and an `_upscaled_Nx_Preset` copy alongside it.
-
-**Upscale Video** opens a file dialog to select any `.mov` file, processes it frame by frame,
-and saves a new `_upscaled_Nx_Preset.mov` alongside the original. The original is never overwritten.
-
-
-<img width="446" height="213" alt="grafik" src="https://github.com/user-attachments/assets/4e529cf2-f361-4b2c-b7de-be0869323956" />
-
+## Custom Upscale Models
+ 
+Any ncnn-compatible upscale model can be added to the `realesrgan/models/` folder and will appear automatically in the upscale dialog. A model is recognized when both files are present:
+ 
+- `<modelname>.param`
+- `<modelname>.bin`
+The model name shown in the dialog is derived from the filename (without extension). Models without a matching pair are ignored.
+ 
+Compatible models can be found at:
+- [upscale.wiki/wiki/Model_Database](https://upscale.wiki/wiki/Model_Database) — community model database
+- [github.com/xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) — official Real-ESRGAN models
+When converting models from other formats (PyTorch `.pth`, ONNX), use [realsr-ncnn-vulkan](https://github.com/nihui/realsr-ncnn-vulkan) or the `ncnn` toolchain to export `.param` / `.bin` pairs. The binary's `-s` flag passes the scale factor at runtime — the model itself must support the selected scale (2× or 4×).
+ 
 ---
 
 ## File Structure
@@ -168,7 +179,7 @@ Protocol reverse engineering and original Python implementation:
 **SeanPesce** — [Suear-Web-Viewer](https://github.com/SeanPesce/Suear-Web-Viewer)
 
 GUI, recording, enhancement, and AI upscaling extensions:
-**Gregor Urabl, BA** — [Homepage](https://gregorurabl.at) · [GitHub](https://github.com/gregorurabl)
+**YOUR NAME HERE** — [Homepage](https://your-homepage.example.com) · [GitHub](https://github.com/your-username)
 
 ---
 
