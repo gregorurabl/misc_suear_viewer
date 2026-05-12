@@ -151,21 +151,44 @@ def upscale_video(input_path: str, output_path: str,
         for i, fname in enumerate(frames):
             if cancel_event and cancel_event.is_set():
                 return
-
             img      = cv2.imread(os.path.join(raw_dir, fname))
             img      = _preprocess(img, denoise, sharpen)
             pre_path = os.path.join(raw_dir, f'pre_{i+1:06d}.jpg')
-            out_path = os.path.join(up_dir,  f'up_{i+1:06d}.png')
             cv2.imwrite(pre_path, img, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            _run_ncnn(pre_path, out_path, model, scale)
-
             if progress_cb:
-                progress_cb(i + 1, total)
+                progress_cb(i + 1, total * 2)  # pre-processing = first half
+
+        # signal pulse mode — batch call blocks until all frames are done
+        if progress_cb:
+            progress_cb(-1, -1)
+
+        # single binary call for all frames — model loads once
+        _check_binary()
+        pre_dir = os.path.join(raw_dir, 'pre_batch')
+        os.makedirs(pre_dir)
+        for i in range(total):
+            os.rename(
+                os.path.join(raw_dir, f'pre_{i+1:06d}.jpg'),
+                os.path.join(pre_dir,  f'pre_{i+1:06d}.jpg'),
+            )
+        result = subprocess.run([
+            _BINARY,
+            '-i', pre_dir,
+            '-o', up_dir,
+            '-n', model,
+            '-s', str(scale),
+            '-f', 'png',
+        ], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"realesrgan-ncnn-vulkan failed:\n{result.stderr}")
+
+        if progress_cb:
+            progress_cb(total * 2, total * 2)
 
         subprocess.run([
             'ffmpeg', '-y',
             '-framerate', '30',
-            '-i', os.path.join(up_dir, 'up_%06d.png'),
+            '-i', os.path.join(up_dir, 'pre_%06d.png'),
             '-c:v', 'prores_ks', '-profile:v', '3',
             '-vendor', 'apl0', '-pix_fmt', 'yuv422p10le',
             output_path,

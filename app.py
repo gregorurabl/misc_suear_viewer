@@ -122,8 +122,9 @@ class VideoProcessDialog(tk.Toplevel):
                   foreground="gray").pack(anchor="w", pady=(0, 10))
 
         self._progress_var = tk.DoubleVar(value=0)
-        ttk.Progressbar(f, variable=self._progress_var,
-                        maximum=100, length=400).pack(fill="x")
+        self._progressbar  = ttk.Progressbar(f, variable=self._progress_var,
+                                              maximum=100, length=400)
+        self._progressbar.pack(fill="x")
 
         self._label_var = tk.StringVar(value="Initialising…")
         ttk.Label(f, textvariable=self._label_var).pack(pady=(6, 12))
@@ -136,9 +137,23 @@ class VideoProcessDialog(tk.Toplevel):
         ).start()
 
     def _progress(self, current, total):
+        if current == -1:
+            # switch to indeterminate pulse for long blocking operations
+            self.after(0, self._start_pulse)
+            return
+        self.after(0, self._stop_pulse)
         pct = (current / total) * 100
         self._progress_var.set(pct)
         self._label_var.set(f"Frame {current} / {total}  ({pct:.0f}%)")
+
+    def _start_pulse(self):
+        self._progressbar.config(mode="indeterminate")
+        self._progressbar.start(12)
+        self._label_var.set("GPU upscaling…")
+
+    def _stop_pulse(self):
+        self._progressbar.stop()
+        self._progressbar.config(mode="determinate")
 
     def _run(self, input_path, worker_fn):
         try:
