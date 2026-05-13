@@ -204,16 +204,20 @@ class UpscaleOptionsDialog(tk.Toplevel):
         ttk.Label(f, text="Model:").grid(row=0, column=0, sticky="w", pady=(0, 6))
         ttk.Combobox(f, textvariable=self._model_var, values=models,
                      state="readonly", width=26).grid(row=0, column=1, padx=(8, 0), pady=(0, 6))
-        ttk.Label(f, text="Scale:").grid(row=1, column=0, sticky="w", pady=(0, 14))
+        ttk.Label(f, text="Scale:").grid(row=1, column=0, sticky="w", pady=(0, 6))
         ttk.Combobox(f, textvariable=self._scale_var, values=["2", "4"],
-                     state="readonly", width=4).grid(row=1, column=1, padx=(8, 0), pady=(0, 14), sticky="w")
+                     state="readonly", width=4).grid(row=1, column=1, padx=(8, 0), pady=(0, 6), sticky="w")
+        self._enhance_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(f, text="Apply Enhance pre-processing",
+                        variable=self._enhance_var).grid(row=2, column=0, columnspan=2,
+                                                          sticky="w", pady=(0, 14))
         btn = ttk.Frame(f)
-        btn.grid(row=2, column=0, columnspan=2)
+        btn.grid(row=3, column=0, columnspan=2)
         ttk.Button(btn, text="OK",     command=self._on_ok).pack(side="left", padx=(0, 8))
         ttk.Button(btn, text="Cancel", command=self._on_cancel).pack(side="left")
 
     def _on_ok(self):
-        self._result = (self._model_var.get(), int(self._scale_var.get()))
+        self._result = (self._model_var.get(), int(self._scale_var.get()), self._enhance_var.get())
         self.destroy()
 
     def _on_cancel(self):
@@ -221,7 +225,7 @@ class UpscaleOptionsDialog(tk.Toplevel):
         self.destroy()
 
     def show(self):
-        """Block until dialog closes; return (model, scale) or None on cancel."""
+        """Block until dialog closes; return (model, scale, enhance) or None on cancel."""
         self.wait_window()
         return self._result
 
@@ -304,8 +308,6 @@ class App(tk.Tk):
         ttk.Separator(ctrl, orient="vertical").pack(side="left", fill="y", padx=(0, 8))
 
         # Right group: actions
-        ttk.Separator(ctrl, orient="vertical").pack(side="left", fill="y", padx=(0, 8))
-
         self._save_btn = ttk.Button(ctrl, text="Save Frame",
                                      command=self._on_save_frame, state="disabled")
         self._save_btn.pack(side="left", padx=(0, 4))
@@ -476,7 +478,7 @@ class App(tk.Tk):
         opts = UpscaleOptionsDialog(self).show()
         if opts is None:
             return
-        model, scale = opts
+        model, scale, use_enhance = opts
         path = self._last_rec_path if (
             self._last_rec_path and os.path.isfile(self._last_rec_path)
         ) else None
@@ -489,8 +491,8 @@ class App(tk.Tk):
         if not path:
             return
         params   = self._settings_win.get_params() if self._settings_win else DEFAULTS
-        denoise  = int(params['denoise'])
-        sharpen  = int(params['sharpen'])
+        denoise  = int(params['denoise']) if use_enhance else 0
+        sharpen  = int(params['sharpen']) if use_enhance else 0
         base, ext = os.path.splitext(path)
         out_path  = f"{base}_upscaled_{scale}x_{model}{ext}"
         dlg = VideoProcessDialog(
@@ -524,9 +526,9 @@ class App(tk.Tk):
         if is_available():
             opts = UpscaleOptionsDialog(self).show()
             if opts is not None:
-                model, scale = opts
-                denoise  = int(params['denoise'])
-                sharpen  = int(params['sharpen'])
+                model, scale, use_enhance = opts
+                denoise  = int(params['denoise']) if use_enhance else 0
+                sharpen  = int(params['sharpen']) if use_enhance else 0
                 ai_data  = upscale_frame(data, denoise, sharpen, model, scale)
                 base, ext = os.path.splitext(path)
                 ai_path   = f"{base}_upscaled_{scale}x_{model}{ext}"
