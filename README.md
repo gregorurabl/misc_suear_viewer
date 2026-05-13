@@ -4,6 +4,8 @@ A Python/tkinter desktop application for live viewing, recording, and image enha
 
 Developed as a fork of [Suear-Web-Viewer by SeanPesce](https://github.com/SeanPesce/Suear-Web-Viewer), extended with a full GUI, video recording, image enhancement, AI upscaling, and hardware controls.
 
+<img width="997" height="585" alt="grafik" src="https://github.com/user-attachments/assets/29c2eeae-e02e-42eb-a90e-39700aa7fec9" />
+
 ---
 
 ## Compatibility
@@ -76,6 +78,8 @@ No Python package installation required for AI upscaling. The binary uses Vulkan
 
 ## Interface
 
+<img width="621" height="54" alt="grafik" src="https://github.com/user-attachments/assets/9f6467e7-c8c0-4db6-83fb-a7dead3ed72f" />
+
 The UI is split into two rows of controls above the live video canvas.
 
 ### Row 1 — Connection & Navigation
@@ -105,6 +109,8 @@ The UI is split into two rows of controls above the live video canvas.
 
 ## Enhance Settings
 
+<img width="377" height="254" alt="grafik" src="https://github.com/user-attachments/assets/06cca883-5f95-4b44-9938-826ad929d768" />
+
 Open via the **Settings** button. Adjustments apply in real time to the live preview and to saved frames.
 
 | Slider | Effect |
@@ -129,14 +135,18 @@ Opens a file dialog to select any `.mov`. Applies a two-pass Farneback stabiliza
  
 ---
 
-## AI Upscale Presets
+## AI Upscaler
+
+<img width="277" height="192" alt="grafik" src="https://github.com/user-attachments/assets/b73b20cf-10ef-4561-97b3-8bda6b2cd3b6" />
 
 Model and scale are selected per operation via a dialog that appears before the file dialog.
-The Denoise and Sharpen values from the Enhance Settings window are used as pre-processing before the neural upscale. If Settings has not been opened, the defaults apply.
+The Denoise and Sharpen values from the Enhance Settings window are used as pre-processing before the neural upscale if the "Apply Enhance pre-processing" checkbox is checked. If Settings has not been opened, the defaults apply.
  
 **Save Frame** saves the enhanced original first, then opens the upscale dialog if the AI binary is installed. Cancelling the dialog skips the upscaled copy without affecting the saved original.
  
 **Upscale Video** opens the upscale dialog first, then the file picker. Output is saved as `_upscaled_Nx_<model>.mov` alongside the original. The original is never overwritten.
+
+The Upscaler and Stabilizer are independend systems. So use it to make all of your videos better, not just those that are captured with your Otoscope!
 
 ---
 
